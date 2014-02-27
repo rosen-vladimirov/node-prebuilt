@@ -1,0 +1,27 @@
+{
+  "name": "prebuilt",
+  "version": "0.1.0",
+  "author": "Stefan Dragnev <tailsu@gmail.com>",
+  "description": "package and install prebuilt node modules",
+  "contributors": [ 
+    {
+      "name": "Marcel Laverdet",
+      "email": "marcel@laverdet.com"
+    } 
+  ],
+  "scripts": {},
+  "main": "./prebuilt.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tailsu/node-prebuilt.git"
+  },
+  "keywords": [
+    "native"
+  ],
+  "dependencies" : {  },
+  "devDependencies": {  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.6"
+  }
+}
