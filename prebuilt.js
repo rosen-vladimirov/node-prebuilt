@@ -3,33 +3,27 @@ var cp = require('child_process'),
 	path = require('path'),
 	package = require('./package.json');
 
-module.exports.requireNative = requireNative;
-module.exports.install = install;
-	
-function requireNative(basePath, moduleName) {
-	moduleName = moduleName || package.name;
+var	force = false,
+	debug = false;
+	arch = process.arch,
+	platform = process.platform,
+	v8 = /[0-9]+\.[0-9]+/.exec(process.versions.v8)[0],
+	// defines if the code is executed inside electron application
+	insideElectronApp = process.env.INSIDE_ELECTRON_APP,
+	// defines the version of electron that will be used for rebuilding the application
+	electronVersion = process.env.ELECTRON_VERSION || "",
+	moduleFileName = "";
+	basePath = "";
 
-// Look for binary for this platform
-	var v8 = 'v8-'+ /[0-9]+\.[0-9]+/.exec(process.versions.v8)[0];
-	var modPath = path.join(basePath, 'bin', process.platform+ '-'+ process.arch+ '-'+ v8, moduleName);
-	try {
-		fs.statSync(modPath + '.node');
-	} catch (ex) {
-		// No binary!
-		throw new Error('`' + modPath + '.node` is missing. Try reinstalling `' + package.name + '`?');
-	}
-
-// Pull in implementation
-	return require(modPath);
+var modPath = platform+ '-'+ arch+ '-v8-'+ v8;
+if(insideElectronApp || electronVersion) {
+	modPath = 'electron-' + modPath;
 }
 
 // Parse args
-var force = false, debug = false;
-var
-	arch = process.arch,
-	platform = process.platform,
-	v8 = /[0-9]+\.[0-9]+/.exec(process.versions.v8)[0];
+console.log("Process.argv = ", process.argv);
 var args = process.argv.slice(2).filter(function(arg) {
+	console.log("### ARG = ", arg, "####");
 	if (arg === '-f') {
 		force = true;
 		return false;
@@ -41,16 +35,37 @@ var args = process.argv.slice(2).filter(function(arg) {
 	return true;
 });
 
-var modPath = platform+ '-'+ arch+ '-v8-'+ v8;
-var moduleFileName;
-var basePath;
-	
+module.exports.requireNative = requireNative;
+module.exports.install = install;
+
+function requireNative(basePath, moduleName) {
+	console.log("basePath = ", basePath, " moduleName = ", moduleName );
+	moduleName = moduleName || package.name;
+
+	// Look for binary for this platform
+	var modulePath = path.join(basePath, 'bin', modPath, moduleName);
+	console.log("In require native: modulePath is: ", modulePath)
+	try {
+		fs.statSync(modulePath + '.node');
+	} catch (ex) {
+		// No binary!
+		throw new Error('`' + modulePath + '.node` is missing. Try reinstalling `' + package.name + '`?');
+	}
+
+	// Pull in implementation
+	return require(modulePath);
+}
+
+
+console.log("1111111modPath = ", modPath);
+
+
 function install(argBasePath, moduleName) {
 	if (!{ia32: true, x64: true, arm: true}.hasOwnProperty(arch)) {
 		console.error('Unsupported (?) architecture: `'+ arch+ '`');
 		process.exit(1);
 	}
-	
+
 	basePath = argBasePath;
 	moduleFileName = (moduleName || package.name) + ".node";
 
@@ -58,6 +73,7 @@ function install(argBasePath, moduleName) {
 	if (!force) {
 		try {
 			fs.statSync(path.join(basePath, 'bin', modPath, moduleFileName));
+			console.log("222222222222modPath = ", modPath);
 			console.log('`'+ modPath+ '` exists; testing');
 			cp.execFile(process.execPath, [path.join(basePath, 'binary-test')], function(err, stdout, stderr) {
 				if (err || stdout !== 'pass' || stderr) {
@@ -78,11 +94,23 @@ function install(argBasePath, moduleName) {
 
 // Build it
 function build() {
+	if(insideElectronApp || electronVersion) {
+		buildForElectron();
+		afterBuild();
+	} else {
+		console.log("Build fro Node!!");
+		buildForNode();
+	}
+
+}
+
+function buildForNode() {
 	cp.spawn(
 		process.platform === 'win32' ? 'node-gyp.cmd' : 'node-gyp',
 		['rebuild'].concat(args),
 		{customFds: [0, 1, 2]})
 	.on('exit', function(err) {
+		console.log("on exit", err);
 		if (err) {
 			if (err === 127) {
 				console.error(
@@ -98,6 +126,15 @@ function build() {
 	});
 }
 
+function buildForElectron() {
+	var home = process.env.HOME;
+	process.env.HOME = path.join(home, ".electron-gyp");
+	console.log("BEFORE REBUILD, home is: ", process.env.HOME);
+	console.log("node-gyp rebuild --target=" + electronVersion + " --arch=" + arch + " --dist-url=https://atom.io/download/atom-shell");
+	cp.execSync("node-gyp rebuild --target=" + electronVersion + " --arch=" + arch + " --dist-url=https://atom.io/download/atom-shell")
+	process.env.HOME = home;
+}
+
 // Move it to expected location
 function afterBuild() {
 	var targetPath = path.join(basePath, 'build', debug ? 'Debug' : 'Release', moduleFileName);
@@ -108,6 +145,7 @@ function afterBuild() {
 	} catch (ex) {}
 
 	try {
+		console.log("Target path = ", targetPath);
 		fs.statSync(targetPath);
 	} catch (ex) {
 		console.error('Build succeeded but target not found');
