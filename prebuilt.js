@@ -5,7 +5,7 @@ var cp = require('child_process'),
 
 module.exports.requireNative = requireNative;
 module.exports.install = install;
-	
+
 function requireNative(basePath, moduleName) {
 	moduleName = moduleName || package.name;
 
@@ -44,13 +44,13 @@ var args = process.argv.slice(2).filter(function(arg) {
 var modPath = platform+ '-'+ arch+ '-v8-'+ v8;
 var moduleFileName;
 var basePath;
-	
+
 function install(argBasePath, moduleName) {
 	if (!{ia32: true, x64: true, arm: true}.hasOwnProperty(arch)) {
 		console.error('Unsupported (?) architecture: `'+ arch+ '`');
 		process.exit(1);
 	}
-	
+
 	basePath = argBasePath;
 	moduleFileName = (moduleName || package.name) + ".node";
 
@@ -60,7 +60,14 @@ function install(argBasePath, moduleName) {
 			fs.statSync(path.join(basePath, 'bin', modPath, moduleFileName));
 			console.log('`'+ modPath+ '` exists; testing');
 			cp.execFile(process.execPath, [path.join(basePath, 'binary-test')], function(err, stdout, stderr) {
-				if (err || stdout !== 'pass' || stderr) {
+				console.log("err:");
+				console.log(err);
+				console.log("stderr:");
+				console.log(stderr);
+				console.log("stdout:");
+				console.log(stdout);
+				console.log("----");
+				if (err || (stdout && stdout.toString().indexOf('pass') === -1) || stderr) {
 					console.log('Problem with the binary; manual build incoming');
 					build();
 				} else {
